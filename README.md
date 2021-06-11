@@ -72,18 +72,19 @@ parse error: Expected separator between values at line 3, column 9
 
 ```
 
-
 Keep reading, I'll show you a few things to make your script more robust and in some times recover from failure.
 
 # The nuclear option: Failing hard, failing fast
 
-For that you can use return error codes ([Bash man page](https://man7.org/linux/man-pages/man1/bash.1.html)):
+The proper way to handle errors is to check if the program finished successfully or not. Yeah, sounds obvious but return code (an integer number stored in bash $? or $! variable) have sometimes a broader meaning. ([Bash man page](https://man7.org/linux/man-pages/man1/bash.1.html)) tell us something:
 
 > For the shell's purposes, a command which exits with a zero exit
        status has succeeded.  An exit status of zero indicates success.
        A non-zero exit status indicates failure.  When a command
        terminates on a fatal signal N, bash uses the value of 128+N as
        the exit status.
+
+As usual, you should always read the man page of the scripts you are calling, to see what are the conventions. If you have programmed with a language like Java or Python then you are most likely familiar with with exceptions and their different meanings (and how not all them are handled the same way).
 
 If you add ```set -o errexit``` to your script, from that point forward it will abort the execution if any command exists with a code != 0. But errexit isn’t used when executing functions inside an if condition, so instead of remembering that little gotcha I rather do explict error handling.
 
