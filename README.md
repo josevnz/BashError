@@ -4,7 +4,7 @@ On this article
 
 ## A simple script that downloads a hardware report from multiple hosts and inserts it into a database. What could go wrong? :-)
 
-Say that you have a little cron job on each one of your Linux HOME machines, and you have a script to collect the hardware information from each:
+Say that you have a little cron job on each one of your Linux HOME machines, and [you have a script to collect](https://github.com/josevnz/BashError/blob/main/collect_data_from_servers.sh) the hardware information from each:
 
 ```shell=
 #!/bin/bash
@@ -87,7 +87,7 @@ For that you can use return error codes ([Bash man page](https://man7.org/linux/
 
 If you add ```set -o errexit``` to your script, from that point forward it will abort the execution if any command exists with a code != 0. But errexit isn’t used when executing functions inside an if condition, so instead of remembering that little gotcha I rather do explict error handling.
 
-So let's take a look a V2 of the script. It is slightly better:
+So let's take a look a [V2 of the script](https://github.com/josevnz/BashError/blob/main/collect_data_from_servers.v2.sh). It is slightly better:
 
 ```shell=
 #!/bin/bash
