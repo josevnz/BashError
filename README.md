@@ -1,8 +1,9 @@
 # Bash error handling
 
-On this article 
+On this article you will see a few tricks to handle error conditions; Some stricly do not fall under the category of error handling (a reactive way to handle the unexpected) but also some techniques to avoid errors before they happen (Did you ever watch [Minority report](https://www.imdb.com/title/tt0181689/). Exactly, but less creepy ;-))
 
-## A simple script that downloads a hardware report from multiple hosts and inserts it into a database. What could go wrong? :-)
+
+## Case of study: Simple script that downloads a hardware report from multiple hosts and inserts it into a database. What could go wrong? :-)
 
 Say that you have a little cron job on each one of your Linux HOME machines, and [you have a script to collect](https://github.com/josevnz/BashError/blob/main/collect_data_from_servers.sh) the hardware information from each:
 
@@ -157,7 +158,105 @@ As you can see this version is better at detecting errors but it is very unforgi
 
 ## When you get stuck and you wish you had an alarm
 
+So our code looks better, except than sometimes our scp could get stuck on a server (while trying to copy a file) because the server is too busy to respond or just in a bad state. 
+
+Let me give you another example: You try to access a directory through NFS, for example like this (say $HOME is mounted from a NFS server):
+
+```shell=
+/usr/bin/find $HOME -type f -name '*.csv' -print -fprint /tmp/report.txt
+```
+
+Only to discover hours later than the NFS mount point is stale and your script got stuck.
+
+Would be nice to have a timeout? Well, [GNU timeout](https://www.gnu.org/software/coreutils/) comes to rhe rescue
+
+```shell=
+/usr/bin/timeout --kill-after 20.0s 10.0s /usr/bin/find $HOME -type f -name '*.csv' -print -fprint /tmp/report.txt
+```
+
+Here we try to regular kill (TERM signal) the process nicely after 10.0 seconds it has started, if is still running after 20.0 seconds then send a KILL signal (kill -9). In doubt check what signals are supported in your system (```kill -l```)
+
+So let's add a few more gizmos to the script, [we get version 3](https://github.com/josevnz/BashError/blob/main/collect_data_from_servers.v3.sh):
+```=shell
+#!/bin/bash
+# Script to collect the status of lshw output from home servers
+# Dependencies:
+# * Open SSH: http://www.openssh.com/portable.html
+# * LSHW: http://ezix.org/project/wiki/HardwareLiSter
+# * JQ: http://stedolan.github.io/jq/
+# * timeout: https://www.gnu.org/software/coreutils/
+#
+# On each machine you can run something like this from cron (Don't know CRON, no worries: https://crontab-generator.org/)
+# 0 0 * * * /usr/sbin/lshw -json -quiet > /var/log/lshw-dump.json
+# Author: Jose Vicente Nunez
+#
+set -o errtrace # Enable the err trap, code will get called when an error is detected
+trap "echo ERROR: There was an error in ${FUNCNAME-main context}, details to follow" ERR
+
+declare dependencies=(
+    /usr/bin/timeout
+    /usr/bin/ssh
+    /usr/bin/lshw
+    usr/bin/jq
+)
+for dependency in $dependencies; do
+    test ! -x && echo "ERROR: Missing $dependency" && exit 100
+done
+
+declare -a servers=(
+macmini2
+mac-pro-1-1
+dmaf5
+)
+
+function remote_copy {
+    local server=$1
+    echo "Visiting: $server"
+    /usr/bin/timeout --kill-after 25.0s 20.0s \
+        /usr/bin/scp \
+            -o BatchMode=yes \
+            -o logLevel=Error \
+            -o ConnectTimeout=5 \
+            -o ConnectionAttempts=3 \
+            ${server}:/var/log/lshw-dump.json ${DATADIR}/lshw-$server-dump.json
+    return $?
+}
+
+DATADIR="$HOME/Documents/lshw-dump"
+if [ ! -d "$DATADIR" ]; then
+    /usr/bin/mkdir -p -v "$DATADIR"|| "FATAL: Failed to create $DATADIR" && exit 100
+fi
+declare -A server_pid
+for server in ${servers[*]}; do
+    remote_copy $server &
+    server_pid[$server]=$! # Save the PID of the scp  of a given server for later
+done
+# Iterate through all the servers and:
+# Wait for the return code of each
+# Check the exit code from each scp
+for server in ${!server_pid[*]}; do
+    wait ${server_pid[$server]}
+    test $? -ne 0 && echo "ERROR: Copy from $server had problems, will not continue" && exit 100
+done
+for lshw in $(/usr/bin/find $DATADIR -type f -name 'lshw-*-dump.json'); do
+    /usr/bin/jq '.["product","vendor", "configuration"]' $lshw|| echo "ERROR parsing '$lshw'" && exit 100
+done
+```
+
+* Between lines 16-21 check if all the required dependency scripts are presents
+* Created a remote_copy function, uses a timeout to make sure the scp finishes on no later than 45.0s, line 35.
+* Added a retry to scp on line 40, 3 attempts that wait 1 second between each
+* Added A conection timeout of 5 seconds instead of the TCP default
+
+Which is all great and all, but there are other ways to retry when thre is an error?
+
 ## Waiting for the end of the world (how and when to retry)
+
+You noticed we added a retry to the scp command. But that retries only for failed connections, what if the command fails during the middle of the copy?
+
+```shell=
+
+```
 
 
 ## If I fail, do I have to do this all over again? Using a checkpoint
