@@ -13,14 +13,12 @@
 set -o errtrace # Enable the err trap, code will get called when an error is detected
 trap "echo ERROR: There was an error in ${FUNCNAME-main context}, details to follow" ERR
 
-declare dependencies=(
-    /usr/bin/timeout
-    /usr/bin/ssh
-    /usr/bin/lshw
-    usr/bin/jq
-)
-for dependency in $dependencies; do
-    test ! -x && echo "ERROR: Missing $dependency" && exit 100
+declare -a dependencies=(/usr/bin/timeout /usr/bin/ssh /usr/bin/jq)
+for dependency in ${dependencies[@]}; do
+    if [ ! -x $dependency ]; then
+        echo "ERROR: Missing $dependency"
+        exit 100
+    fi
 done
 
 declare -a servers=(

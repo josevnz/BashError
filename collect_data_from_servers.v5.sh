@@ -35,14 +35,12 @@ function mark_previous_run {
 declare REMOTE_FILE="/var/log/lshw-dump.json"
 declare MAX_RETRIES=3
 
-declare dependencies=(
-    /usr/bin/timeout
-    /usr/bin/ssh
-    /usr/bin/lshw
-    usr/bin/jq
-)
-for dependency in $dependencies; do
-    test ! -x && echo "ERROR: Missing $dependency" && exit 100
+declare -a dependencies=(/usr/bin/timeout /usr/bin/ssh /usr/bin/jq)
+for dependency in ${dependencies[@]}; do
+    if [ ! -x $dependency ]; then
+        echo "ERROR: Missing $dependency"
+        exit 100
+    fi
 done
 
 declare -a servers=(
