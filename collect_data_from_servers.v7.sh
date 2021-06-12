@@ -48,7 +48,7 @@ EOF
 if [ ! -d "$CACHE_DIR" ]; then
     /usr/bin/mkdir -p -v "$CACHE_DIR"|| exit 100
 fi
-trap "/bin/rm -rf $CACHE_DIR" INT KILL
+trap "/bin/rm -rf $CACHE_DIR" INT TERM
 
 function check_previous_run {
     local machine=$1
