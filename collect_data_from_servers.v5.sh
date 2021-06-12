@@ -10,8 +10,6 @@
 # 0 0 * * * /usr/sbin/lshw -json -quiet > /var/log/lshw-dump.json
 # Author: Jose Vicente Nunez
 #
-set -o errtrace # Enable the err trap, code will get called when an error is detected
-trap "echo ERROR: There was an error in ${FUNCNAME-main context}, details to follow" ERR
 declare SCRIPT_NAME=$(/usr/bin/basename $BASH_SOURCE)|| exit 100
 declare YYYYMMDD=$(/usr/bin/date +%Y%m%d)|| exit 100
 declare CACHE_DIR="/tmp/$SCRIPT_NAME/$YYYYMMDD"

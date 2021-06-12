@@ -8,8 +8,6 @@
 # 0 0 * * * /usr/sbin/lshw -json -quiet > /var/log/lshw-dump.json
 # Author: Jose Vicente Nunez
 #
-set -o errtrace # Enable the err trap, code will get called when an error is detected
-trap "echo ERROR: There was an error in ${FUNCNAME-main context}, details to follow" ERR
 declare -a servers=(
 macmini2
 mac-pro-1-1

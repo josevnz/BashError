@@ -21,8 +21,6 @@ done
 
 SCRIPT_NAME=$(/usr/bin/basename "${BASH_SOURCE[0]}")|| exit 100
 FULL_PATH=$(/usr/bin/realpath "${BASH_SOURCE[0]}")|| exit 100
-set -o errtrace # Enable the err trap, code will get called when an error is detected
-trap 'echo ERROR: There was an error in "${FUNCNAME[0]-main context}", details to follow' ERR
 declare CACHE_DIR="/tmp/$SCRIPT_NAME/$YYYYMMDD"
 
 function message {
@@ -85,7 +83,7 @@ function remote_copy {
                 -o logLevel=Error \
                 -o ConnectTimeout=5 \
                 -o ConnectionAttempts=3 \
-                "${server}:$REMOTE_FILE ${DATADIR}/lshw-$server-dump.json.$$"
+                "${server}":"$REMOTE_FILE" "${DATADIR}/lshw-$server-dump.json.$$"
         status=$?
         if [ $status -ne 0 ]; then
             sleep_time=$(((RANDOM % 60)+ 1))
