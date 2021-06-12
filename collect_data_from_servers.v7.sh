@@ -10,11 +10,40 @@
 # 0 0 * * * /usr/sbin/lshw -json -quiet > /var/log/lshw-dump.json
 # Author: Jose Vicente Nunez
 #
+
+declare -a dependencies=(/usr/bin/timeout /usr/bin/ssh /usr/bin/jq)
+for dependency in ${dependencies[@]}; do
+    if [ ! -x $dependency ]; then
+        echo "ERROR: Missing $dependency"
+        exit 100
+    fi
+done
+
+SCRIPT_NAME=$(/usr/bin/basename $BASH_SOURCE)|| exit 100
+FULL_PATH=$(/usr/bin/realpath ${BASH_SOURCE[0]})|| exit 100
 set -o errtrace # Enable the err trap, code will get called when an error is detected
-trap "echo ERROR: There was an error in ${FUNCNAME-main context}, details to follow" ERR
-declare SCRIPT_NAME=$(/usr/bin/basename $BASH_SOURCE)|| exit 100
-declare YYYYMMDD=$(/usr/bin/date +%Y%m%d)|| exit 100
+trap "echo ERROR: There was an error in ${FUNCNAME[0]-main context}, details to follow" ERR
 declare CACHE_DIR="/tmp/$SCRIPT_NAME/$YYYYMMDD"
+
+function message {
+    message="$1"
+    func_name="${2-unknown}"
+    priority=6
+    if [ -z "$2" ]; then
+        echo "INFO:" $message
+    else
+        echo "ERROR:" $message
+        priority=0
+    fi
+    /usr/bin/logger --journald<<EOF
+MESSAGE_ID=$SCRIPT_NAME
+MESSAGE=$message
+PRIORITY=$priority
+CODE_FILE=$FULL_PATH
+CODE_FUNC=$func_name
+EOF
+}
+
 # Logic to clean up the cache dir on daily basis is not shown here
 if [ ! -d "$CACHE_DIR" ]; then
     /usr/bin/mkdir -p -v "$CACHE_DIR"|| exit 100
@@ -35,14 +64,6 @@ function mark_previous_run {
 declare REMOTE_FILE="/var/log/lshw-dump.json"
 declare MAX_RETRIES=3
 
-declare -a dependencies=(/usr/bin/timeout /usr/bin/ssh /usr/bin/jq)
-for dependency in ${dependencies[@]}; do
-    if [ ! -x $dependency ]; then
-        echo "ERROR: Missing $dependency"
-        exit 100
-    fi
-done
-
 declare -a servers=(
 dmaf5
 macmini2
@@ -52,31 +73,39 @@ mac-pro-1-1
 function remote_copy {
     local server=$1
     check_previous_run $server
-    test $? -eq 0 && echo "INFO: $1 ran successfully before. Not doing again" && return 0
+    test $? -eq 0 && message "$1 ran successfully before. Not doing again" && return 0
     local retries=$2
     local now=1
     status=0
     while [ $now -le $retries ]; do
-        echo "INFO: Trying to copy file from: $server, attempt=$now"
+        message "Trying to copy file from: $server, attempt=$now"
         /usr/bin/timeout --kill-after 25.0s 20.0s \
             /usr/bin/scp \
                 -o BatchMode=yes \
                 -o logLevel=Error \
                 -o ConnectTimeout=5 \
                 -o ConnectionAttempts=3 \
-                ${server}:$REMOTE_FILE ${DATADIR}/lshw-$server-dump.json
+                ${server}:$REMOTE_FILE ${DATADIR}/lshw-$server-dump.json.$$
         status=$?
         if [ $status -ne 0 ]; then
             sleep_time=$(((RANDOM % 60)+ 1))
-            echo "WARNING: Copy failed for $server:$REMOTE_FILE. Waiting '${sleep_time} seconds' before re-trying..."
+            message "Copy failed for $server:$REMOTE_FILE. Waiting '${sleep_time} seconds' before re-trying..." ${FUNCNAME[0]}
             /usr/bin/sleep ${sleep_time}s
         else
             break # All good, no point on waiting...
         fi
         ((now=now+1))
     done
-    test $status -eq 0 && mark_previous_run $server
-    test $? -ne 0 && status=1
+    if [ $status -eq 0 ]; then
+        /usr/bin/jq '.' ${DATADIR}/lshw-$server-dump.json.$$ > /dev/null 2>&1
+        status=$?
+        if [ $status -eq 0 ]; then
+            /usr/bin/mv -v -f ${DATADIR}/lshw-$server-dump.json.$$ ${DATADIR}/lshw-$server-dump.json && mark_previous_run $server
+            test $? -ne 0 && status=1
+        else
+            message "${DATADIR}/lshw-$server-dump.json.$$ Is corrupted. Leaving for inspection..." ${FUNCNAME[0]}
+        fi
+    fi
     return $status
 }
 
@@ -94,7 +123,7 @@ done
 # Check the exit code from each scp
 for server in ${!server_pid[*]}; do
     wait ${server_pid[$server]}
-    test $? -ne 0 && echo "ERROR: Copy from $server had problems, will not continue" && exit 100
+    test $? -ne 0 && message "Copy from $server had problems, will not continue" main && exit 100
 done
 for lshw in $(/usr/bin/find $DATADIR -type f -name 'lshw-*-dump.json'); do
     /usr/bin/jq '.["product","vendor", "configuration"]' $lshw

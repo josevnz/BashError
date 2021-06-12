@@ -57,5 +57,5 @@ for server in ${!server_pid[*]}; do
     test $? -ne 0 && echo "ERROR: Copy from $server had problems, will not continue" && exit 100
 done
 for lshw in $(/usr/bin/find $DATADIR -type f -name 'lshw-*-dump.json'); do
-    /usr/bin/jq '.["product","vendor", "configuration"]' $lshw|| echo "ERROR parsing '$lshw'" && exit 100
+    /usr/bin/jq '.["product","vendor", "configuration"]' $lshw
 done
