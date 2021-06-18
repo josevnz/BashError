@@ -632,5 +632,17 @@ If you are wondering, the final version of the script, after passing ShellCheck 
 
 * This Bash script could potentially create a fork bomb. It has no control of how many processes to spawn at the same time, which is a big problem in a real production environment. Also there is a limit on how many concurrent SSH sessions you can have (let alone consume bandwith). Again, I wrote this fictional example in Bash to show you how you can always improve a program to handle error betters.
 
+## Summary
+
+So let's recap what we learned here
+
+1. You must check the return code of your commands. That could mean deciding to retry until a transitory condition improves or to short circuit the whole script
+2. Speaking about transitory conditions,you don't need to start from scratch. You can save the status of successfull tasks and then retry from that point forward
+3. Bash 'trap' is your friend. Use it for cleanup and error handling
+4. When downloading data from any source, assume is corrupted. Never overwrite your good data set with fresh data until you have done some integrity checks.
+5. Take advantage of journalctl and custom fields. You can perform sophisticated searches looking for issues, and even send that data to log aggregators
+6. You can check the status of background tasks (including sub-shells). Just remember to save the PID and wait on it.
+7. And finally: Use a Bash lint helper like [ShellCheck](https://github.com/josevnz/BashError/blob/main/collect_data_from_servers.final.sh). You can install it on your favorite editor (like VIM or PyCharm). You will be surprised how little errors go undetected on Bash scripts...
+
 Let's have a conversation! Please drop your comments, I will do my best to get back to you with answers to your questions.
 
