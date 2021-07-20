@@ -1,5 +1,7 @@
 # Bash error handling
 
+(This article was published on [Enable Sysadmin: Learn Bash error handling by example](https://www.redhat.com/sysadmin/bash-error-handling))
+
 On this article you will see a few tricks to handle error conditions; Some stricly do not fall under the category of error handling (a reactive way to handle the unexpected) but also some techniques to avoid errors before they happen (Did you ever watch [Minority report](https://www.imdb.com/title/tt0181689/). Exactly, but less creepy ;-))
 
 
